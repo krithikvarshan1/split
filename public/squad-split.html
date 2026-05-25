@@ -4,6 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Squad Split — Group Expense Splitter</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
   :root{
     --bg:#f7f8fb; --surface:#ffffff; --surface-2:#f1f3f8;
@@ -130,7 +132,7 @@
     <div class="top-actions">
       <select id="currency" title="Currency"></select>
       <button class="btn" id="copyBtn">📋 Copy summary</button>
-      <button class="btn" id="csvBtn">⬇️ CSV</button>
+      <button class="btn" id="pdfBtn">⬇️ PDF</button>
       <button class="btn danger" id="resetBtn">↺ Reset</button>
     </div>
   </header>
@@ -205,11 +207,10 @@
           <select id="fPaidBy" required></select></div>
         <div class="field"><label>Category</label>
           <select id="fCategory">
-            <option value="food">Food</option>
+            <option value="food" selected>Food</option>
             <option value="travel">Travel</option>
             <option value="stay">Stay</option>
             <option value="entertainment">Entertainment</option>
-            <option value="misc" selected>Misc</option>
           </select></div>
       </div>
       <div class="field">
@@ -258,10 +259,10 @@ const CURRENCIES = {
   USD:{s:"$"}, EUR:{s:"€"}, GBP:{s:"£"}, INR:{s:"₹"},
   JPY:{s:"¥"}, AUD:{s:"A$"}, CAD:{s:"C$"}
 };
-const CATS = ["food","travel","stay","entertainment","misc"];
+const CATS = ["food","travel","stay","entertainment"];
 const AVATAR_COLORS = ["#ef4444","#f59e0b","#10b981","#3b82f6","#8b5cf6","#ec4899","#14b8a6","#f97316","#6366f1","#0ea5e9"];
 
-let state = load() || demo();
+let state = load() || emptyState();
 let editingId = null;
 let splitType = "equal";
 let customSplits = {}; // memberId -> number
@@ -274,30 +275,9 @@ function load(){
 function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 function uid(){ return Math.random().toString(36).slice(2,10); }
 
-/* --------- Demo data --------- */
-function demo(){
-  const m = (name) => ({id:uid(), name, color:AVATAR_COLORS[Math.floor(Math.random()*AVATAR_COLORS.length)]});
-  const alex=m("Alex"), jordan=m("Jordan"), sam=m("Sam"), taylor=m("Taylor");
-  const members=[alex,jordan,sam,taylor];
-  const today=new Date();
-  const d = (n)=> new Date(today.getTime()-n*86400000).toISOString().slice(0,10);
-  const all = members.map(x=>x.id);
-  const expenses = [
-    {id:uid(), title:"Flight tickets", amount:480, paidBy:alex.id, date:d(6), category:"travel",
-      splitType:"equal", participants:all, splits:equalize(480,all)},
-    {id:uid(), title:"Beach shack dinner", amount:96, paidBy:jordan.id, date:d(4), category:"food",
-      splitType:"equal", participants:all, splits:equalize(96,all)},
-    {id:uid(), title:"Airbnb stay", amount:600, paidBy:sam.id, date:d(5), category:"stay",
-      splitType:"percent", participants:all, splits:pctSplits(600,[[alex.id,30],[jordan.id,30],[sam.id,20],[taylor.id,20]])},
-    {id:uid(), title:"Scuba diving", amount:240, paidBy:taylor.id, date:d(2), category:"entertainment",
-      splitType:"custom", participants:[alex.id,taylor.id,sam.id],
-      splits:{[alex.id]:80,[taylor.id]:80,[sam.id]:80}},
-    {id:uid(), title:"Snacks & drinks", amount:38.5, paidBy:jordan.id, date:d(1), category:"misc",
-      splitType:"equal", participants:all, splits:equalize(38.5,all)},
-  ];
-  return {
-    group:"Goa Trip 🏖️", currency:"USD", members, expenses, settlementsPaid:{}
-  };
+/* --------- Empty state --------- */
+function emptyState(){
+  return { group:"My Trip", currency:"INR", members:[], expenses:[], settlementsPaid:{} };
 }
 function equalize(amount, ids){
   const per = +(amount/ids.length).toFixed(2);
@@ -431,7 +411,7 @@ function openExpense(id){
   document.getElementById("fTitle").value = e?.title || "";
   document.getElementById("fAmount").value = e?.amount || "";
   document.getElementById("fDate").value = e?.date || new Date().toISOString().slice(0,10);
-  document.getElementById("fCategory").value = e?.category || "misc";
+  document.getElementById("fCategory").value = e?.category || "food";
 
   const payerSel = document.getElementById("fPaidBy");
   payerSel.innerHTML = state.members.map(m=>`<option value="${m.id}">${escapeHtml(m.name)}</option>`).join("");
@@ -639,21 +619,50 @@ function copySummary(){
   else s.forEach(x=> lines.push(`${memberById(x.from).name} pays ${memberById(x.to).name} ${fmt(x.amount)}`));
   navigator.clipboard.writeText(lines.join("\n")).then(()=> toast("Copied summary"));
 }
-function downloadCSV(){
-  const header = ["Date","Title","Category","Amount","Paid By","Split Among"];
-  const rows = [...state.expenses].sort((a,b)=>b.date.localeCompare(a.date)).map(e=>[
-    e.date, e.title, e.category, e.amount.toFixed(2),
+function downloadPDF(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const sym = CURRENCIES[state.currency].s;
+  const money = n => `${sym}${(+n).toFixed(2)}`;
+
+  doc.setFontSize(18);
+  doc.text(state.group || "Squad Split", 14, 18);
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text(`Currency: ${state.currency} • Generated ${new Date().toLocaleDateString()}`, 14, 25);
+  doc.setTextColor(0);
+
+  const expRows = [...state.expenses].sort((a,b)=>b.date.localeCompare(a.date)).map(e=>[
+    e.date, e.title, e.category,
+    money(e.amount),
     memberById(e.paidBy)?.name||"",
-    e.participants.map(id=> `${memberById(id)?.name}:${(e.splits[id]||0).toFixed(2)}`).join(" | ")
+    e.participants.map(id=> `${memberById(id)?.name}: ${money(e.splits[id]||0)}`).join(", ")
   ]);
-  const csv = [header, ...rows].map(r=> r.map(c=>{
-    const s = String(c).replace(/"/g,'""'); return /[",\n]/.test(s) ? `"${s}"` : s;
-  }).join(",")).join("\n");
-  const blob = new Blob([csv],{type:"text/csv"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href=url; a.download=`${state.group.replace(/\s+/g,"_")}_expenses.csv`; a.click();
-  URL.revokeObjectURL(url);
+  doc.autoTable({
+    startY: 32,
+    head: [["Date","Title","Category","Amount","Paid By","Split Among"]],
+    body: expRows.length ? expRows : [["—","No expenses yet","—","—","—","—"]],
+    styles: { fontSize: 9, cellPadding: 2 },
+    headStyles: { fillColor: [99,102,241] },
+    columnStyles: { 5: { cellWidth: 70 } }
+  });
+
+  const settlements = computeSettlements();
+  const setRows = settlements.map(s=>[
+    memberById(s.from)?.name||"", "→", memberById(s.to)?.name||"", money(s.amount)
+  ]);
+  let y = doc.lastAutoTable.finalY + 10;
+  doc.setFontSize(13);
+  doc.text("Settlements", 14, y);
+  doc.autoTable({
+    startY: y + 4,
+    head: [["From","","To","Amount"]],
+    body: setRows.length ? setRows : [["—","","—","All settled"]],
+    styles: { fontSize: 10, cellPadding: 2 },
+    headStyles: { fillColor: [22,163,74] }
+  });
+
+  doc.save(`${(state.group||"squad-split").replace(/\s+/g,"_")}_expenses.pdf`);
 }
 
 /* --------- Confirm dialog --------- */
@@ -693,9 +702,9 @@ function bind(){
   document.getElementById("cancelExpense").onclick = ()=> document.getElementById("expenseDialog").close();
   document.getElementById("expenseForm").addEventListener("submit", saveExpense);
   document.getElementById("copyBtn").onclick = copySummary;
-  document.getElementById("csvBtn").onclick = downloadCSV;
+  document.getElementById("pdfBtn").onclick = downloadPDF;
   document.getElementById("resetBtn").onclick = ()=> confirmDialog("Start a new trip?","This clears all members, expenses and settlements.",()=>{
-    localStorage.removeItem(STORAGE_KEY); state = demo(); save(); renderAll(); toast("Reset complete");
+    localStorage.removeItem(STORAGE_KEY); state = emptyState(); save(); renderAll(); toast("Reset complete");
   });
   document.querySelectorAll(".tab").forEach(t=> t.onclick = ()=> setTab(t.dataset.tab));
 }
