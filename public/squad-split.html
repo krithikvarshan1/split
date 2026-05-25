@@ -619,21 +619,50 @@ function copySummary(){
   else s.forEach(x=> lines.push(`${memberById(x.from).name} pays ${memberById(x.to).name} ${fmt(x.amount)}`));
   navigator.clipboard.writeText(lines.join("\n")).then(()=> toast("Copied summary"));
 }
-function downloadCSV(){
-  const header = ["Date","Title","Category","Amount","Paid By","Split Among"];
-  const rows = [...state.expenses].sort((a,b)=>b.date.localeCompare(a.date)).map(e=>[
-    e.date, e.title, e.category, e.amount.toFixed(2),
+function downloadPDF(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const sym = CURRENCIES[state.currency].s;
+  const money = n => `${sym}${(+n).toFixed(2)}`;
+
+  doc.setFontSize(18);
+  doc.text(state.group || "Squad Split", 14, 18);
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text(`Currency: ${state.currency} • Generated ${new Date().toLocaleDateString()}`, 14, 25);
+  doc.setTextColor(0);
+
+  const expRows = [...state.expenses].sort((a,b)=>b.date.localeCompare(a.date)).map(e=>[
+    e.date, e.title, e.category,
+    money(e.amount),
     memberById(e.paidBy)?.name||"",
-    e.participants.map(id=> `${memberById(id)?.name}:${(e.splits[id]||0).toFixed(2)}`).join(" | ")
+    e.participants.map(id=> `${memberById(id)?.name}: ${money(e.splits[id]||0)}`).join(", ")
   ]);
-  const csv = [header, ...rows].map(r=> r.map(c=>{
-    const s = String(c).replace(/"/g,'""'); return /[",\n]/.test(s) ? `"${s}"` : s;
-  }).join(",")).join("\n");
-  const blob = new Blob([csv],{type:"text/csv"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href=url; a.download=`${state.group.replace(/\s+/g,"_")}_expenses.csv`; a.click();
-  URL.revokeObjectURL(url);
+  doc.autoTable({
+    startY: 32,
+    head: [["Date","Title","Category","Amount","Paid By","Split Among"]],
+    body: expRows.length ? expRows : [["—","No expenses yet","—","—","—","—"]],
+    styles: { fontSize: 9, cellPadding: 2 },
+    headStyles: { fillColor: [99,102,241] },
+    columnStyles: { 5: { cellWidth: 70 } }
+  });
+
+  const settlements = computeSettlements();
+  const setRows = settlements.map(s=>[
+    memberById(s.from)?.name||"", "→", memberById(s.to)?.name||"", money(s.amount)
+  ]);
+  let y = doc.lastAutoTable.finalY + 10;
+  doc.setFontSize(13);
+  doc.text("Settlements", 14, y);
+  doc.autoTable({
+    startY: y + 4,
+    head: [["From","","To","Amount"]],
+    body: setRows.length ? setRows : [["—","","—","All settled"]],
+    styles: { fontSize: 10, cellPadding: 2 },
+    headStyles: { fillColor: [22,163,74] }
+  });
+
+  doc.save(`${(state.group||"squad-split").replace(/\s+/g,"_")}_expenses.pdf`);
 }
 
 /* --------- Confirm dialog --------- */
