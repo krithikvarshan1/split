@@ -259,10 +259,10 @@ const CURRENCIES = {
   USD:{s:"$"}, EUR:{s:"€"}, GBP:{s:"£"}, INR:{s:"₹"},
   JPY:{s:"¥"}, AUD:{s:"A$"}, CAD:{s:"C$"}
 };
-const CATS = ["food","travel","stay","entertainment","misc"];
+const CATS = ["food","travel","stay","entertainment"];
 const AVATAR_COLORS = ["#ef4444","#f59e0b","#10b981","#3b82f6","#8b5cf6","#ec4899","#14b8a6","#f97316","#6366f1","#0ea5e9"];
 
-let state = load() || demo();
+let state = load() || emptyState();
 let editingId = null;
 let splitType = "equal";
 let customSplits = {}; // memberId -> number
@@ -275,30 +275,9 @@ function load(){
 function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 function uid(){ return Math.random().toString(36).slice(2,10); }
 
-/* --------- Demo data --------- */
-function demo(){
-  const m = (name) => ({id:uid(), name, color:AVATAR_COLORS[Math.floor(Math.random()*AVATAR_COLORS.length)]});
-  const alex=m("Alex"), jordan=m("Jordan"), sam=m("Sam"), taylor=m("Taylor");
-  const members=[alex,jordan,sam,taylor];
-  const today=new Date();
-  const d = (n)=> new Date(today.getTime()-n*86400000).toISOString().slice(0,10);
-  const all = members.map(x=>x.id);
-  const expenses = [
-    {id:uid(), title:"Flight tickets", amount:480, paidBy:alex.id, date:d(6), category:"travel",
-      splitType:"equal", participants:all, splits:equalize(480,all)},
-    {id:uid(), title:"Beach shack dinner", amount:96, paidBy:jordan.id, date:d(4), category:"food",
-      splitType:"equal", participants:all, splits:equalize(96,all)},
-    {id:uid(), title:"Airbnb stay", amount:600, paidBy:sam.id, date:d(5), category:"stay",
-      splitType:"percent", participants:all, splits:pctSplits(600,[[alex.id,30],[jordan.id,30],[sam.id,20],[taylor.id,20]])},
-    {id:uid(), title:"Scuba diving", amount:240, paidBy:taylor.id, date:d(2), category:"entertainment",
-      splitType:"custom", participants:[alex.id,taylor.id,sam.id],
-      splits:{[alex.id]:80,[taylor.id]:80,[sam.id]:80}},
-    {id:uid(), title:"Snacks & drinks", amount:38.5, paidBy:jordan.id, date:d(1), category:"misc",
-      splitType:"equal", participants:all, splits:equalize(38.5,all)},
-  ];
-  return {
-    group:"Goa Trip 🏖️", currency:"USD", members, expenses, settlementsPaid:{}
-  };
+/* --------- Empty state --------- */
+function emptyState(){
+  return { group:"My Trip", currency:"INR", members:[], expenses:[], settlementsPaid:{} };
 }
 function equalize(amount, ids){
   const per = +(amount/ids.length).toFixed(2);
