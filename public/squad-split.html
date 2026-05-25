@@ -702,9 +702,9 @@ function bind(){
   document.getElementById("cancelExpense").onclick = ()=> document.getElementById("expenseDialog").close();
   document.getElementById("expenseForm").addEventListener("submit", saveExpense);
   document.getElementById("copyBtn").onclick = copySummary;
-  document.getElementById("csvBtn").onclick = downloadCSV;
+  document.getElementById("pdfBtn").onclick = downloadPDF;
   document.getElementById("resetBtn").onclick = ()=> confirmDialog("Start a new trip?","This clears all members, expenses and settlements.",()=>{
-    localStorage.removeItem(STORAGE_KEY); state = demo(); save(); renderAll(); toast("Reset complete");
+    localStorage.removeItem(STORAGE_KEY); state = emptyState(); save(); renderAll(); toast("Reset complete");
   });
   document.querySelectorAll(".tab").forEach(t=> t.onclick = ()=> setTab(t.dataset.tab));
 }
