@@ -411,7 +411,7 @@ function openExpense(id){
   document.getElementById("fTitle").value = e?.title || "";
   document.getElementById("fAmount").value = e?.amount || "";
   document.getElementById("fDate").value = e?.date || new Date().toISOString().slice(0,10);
-  document.getElementById("fCategory").value = e?.category || "misc";
+  document.getElementById("fCategory").value = e?.category || "food";
 
   const payerSel = document.getElementById("fPaidBy");
   payerSel.innerHTML = state.members.map(m=>`<option value="${m.id}">${escapeHtml(m.name)}</option>`).join("");
