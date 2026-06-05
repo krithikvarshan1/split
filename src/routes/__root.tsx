@@ -72,14 +72,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "splitit" },
+      { name: "description", content: "Squad Split is a real-time web app for effortlessly splitting group expenses." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "splitit" },
+      { property: "og:description", content: "Squad Split is a real-time web app for effortlessly splitting group expenses." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "splitit" },
+      { name: "twitter:description", content: "Squad Split is a real-time web app for effortlessly splitting group expenses." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/6724145f-8b6f-4979-9576-ad1173ec3bd0/id-preview-36ca41c0--c7b85c9a-f040-4c7e-8d62-bef1b1ff2170.lovable.app-1780690951590.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/6724145f-8b6f-4979-9576-ad1173ec3bd0/id-preview-36ca41c0--c7b85c9a-f040-4c7e-8d62-bef1b1ff2170.lovable.app-1780690951590.png" },
     ],
     links: [
       {
